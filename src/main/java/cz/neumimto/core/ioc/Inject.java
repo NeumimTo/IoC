@@ -27,7 +27,7 @@ import java.lang.annotation.Target;
  * Created by NeumimTo on 29.6.2015.
  */
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.FIELD)
+@Target({ElementType.FIELD, ElementType.CONSTRUCTOR, ElementType.TYPE_PARAMETER, ElementType.PARAMETER})
 public @interface Inject {
     InjectPolicy value() default InjectPolicy.NORMAL;
 

@@ -33,8 +33,6 @@ public class IoC {
     private Map<Object, Set<Method>> postProcess = new HashMap<>();
     private static IoC ioc;
 
-
-
     protected IoC() {
 
     }
