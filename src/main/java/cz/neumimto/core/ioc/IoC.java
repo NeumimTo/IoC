@@ -18,10 +18,13 @@
 
 package cz.neumimto.core.ioc;
 
+import java.lang.annotation.Annotation;
+import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
 import java.util.*;
+import java.util.function.BiFunction;
 
 /**
  * Created by NeumimTo on 29.6.2015.
@@ -31,10 +34,40 @@ public class IoC {
 
     private Map<Class<?>, Object> referenceMap = new HashMap<>();
     private Map<Object, Set<Method>> postProcess = new HashMap<>();
+    private Map<Class<? extends Annotation>, AnnotationCallback> annotationCallbackMap = new HashMap();
     private static IoC ioc;
 
-    protected IoC() {
+    public static class InjectContext {
+        public final AnnotatedElement annotatedElement;
+        public final Object instance;
+        public final Class<?> clazz;
 
+        private InjectContext(AnnotatedElement annotatedElement, Object instance, Class<?> clazz) {
+            this.annotatedElement = annotatedElement;
+            this.instance = instance;
+            this.clazz = clazz;
+        }
+    }
+
+    @FunctionalInterface
+    public interface AnnotationCallback {
+
+        void process(InjectContext injectContext);
+    }
+
+    protected IoC() {
+        annotationCallbackMap.put(Inject.class, injectContext -> {
+                Field f = (Field) injectContext.annotatedElement;
+                f.setAccessible(true);
+                Class fieldtype = f.getType();
+                Object instance = build(fieldtype);
+                try {
+                    f.set(injectContext.instance, instance);
+                } catch (IllegalAccessException e) {
+                    e.printStackTrace();
+                }
+
+        });
     }
 
     public static IoC get() {
@@ -42,6 +75,10 @@ public class IoC {
             ioc = new IoC();
         }
         return ioc;
+    }
+
+    public void registerAnnotationCallback(Class<? extends Annotation> annotation, AnnotationCallback callback) {
+        annotationCallbackMap.put(annotation, callback);
     }
 
     public void registerDependency(Object object) {
@@ -98,15 +135,13 @@ public class IoC {
 
     private void injectFields(Object o, Class cl) {
         for (Field f : cl.getDeclaredFields()) {
-            if (f.isAnnotationPresent(Inject.class)) {
-                f.setAccessible(true);
-                Class fieldtype = f.getType();
-                Object instance = build(fieldtype);
-                try {
-                    f.set(o, instance);
-                } catch (IllegalAccessException e) {
-                    e.printStackTrace();
-                }
+            Annotation[] annotations = f.getAnnotations();
+            for (Annotation annotation : annotations) {
+                Class<? extends Annotation> aClass = annotation.annotationType();
+                annotationCallbackMap.computeIfPresent(aClass, (aClass1, callback) -> {
+                    callback.process(new InjectContext(f,o,cl));
+                    return callback;
+                });
             }
         }
         Class superClass = cl.getSuperclass();

@@ -8,6 +8,9 @@ public class TestService1 {
     @Inject
     private TestService2 service2;
 
+    @TestA
+    public int a = 100;
+
     public TestService2 getService2() {
         return service2;
     }
